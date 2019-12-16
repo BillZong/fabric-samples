@@ -6,3 +6,7 @@
 /ledgers-backup
 /channel-artifacts/*.json
 /org3-artifacts/crypto-config/*
+connection-org1.json
+connection-org1.yaml
+connection-org2.json
+connection-org2.yaml
