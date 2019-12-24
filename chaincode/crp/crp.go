@@ -17,7 +17,10 @@ const (
 	apiSupportAPIs    apiName = "apis"
 	apiSupportOpCodes apiName = "op-codes"
 	apiInitLedger     apiName = "init-ledger"
+	apiCreate         apiName = "create"
 	apiCommit         apiName = "commit"
+	apiQuery          apiName = "query"
+	apiHistory        apiName = "history"
 )
 
 type opCode string
@@ -32,6 +35,7 @@ const (
 const (
 	apiKeyPrefix    = "API"
 	opCodeKeyPrefix = "OPCode"
+	edocKeyPrefix   = "EDoc_"
 )
 
 // Define the Smart Contract structure
@@ -40,13 +44,18 @@ type SmartContract struct {
 
 // EDocument is the e-document structure for CRP(China Resource Power).
 type EDocument struct {
-	ID          string `json:"id"`
-	Name        string `json:"name,omitempty"`
+	DocumentID  string `json:"document-id"`
 	UID         string `json:"uid"`
-	OpCode      string `json:"op-code"`
+	OpCode      opCode `json:"op-code"`
 	OpTime      string `json:"op-time"`
-	Description string `json:"description,omitempty"`
 	Hash        string `json:"hash"`
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+type KVResult struct {
+	Key   string
+	Value []byte
 }
 
 func (s *SmartContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
@@ -64,30 +73,35 @@ func (s *SmartContract) Invoke(APIstub shim.ChaincodeStubInterface) sc.Response 
 		return s.queryAllApis(APIstub)
 	} else if api == apiSupportOpCodes {
 		return s.queryAllOpCodes(APIstub)
+	} else if api == apiCreate {
+		return s.createRecord(APIstub, args)
+	} else if api == apiCommit {
+		return s.commitRecord(APIstub, args)
+	} else if api == apiQuery {
+		return s.queryRecord(APIstub, args)
+	} else if api == apiHistory {
+		return s.queryRecordHistory(APIstub, args)
 	}
 
 	return shim.Error(fmt.Sprintf("Not support function name: %s, args: %s", function, args))
 }
 
-// func (s *SmartContract) queryCar(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
-
-//  if len(args) != 1 {
-// 	 return shim.Error("Incorrect number of arguments. Expecting 1")
-//  }
-
-//  carAsBytes, _ := APIstub.GetState(args[0])
-//  return shim.Success(carAsBytes)
-// }
+func printFunctionName() {
+	funcName, _, _, _ := runtime.Caller(1)
+	fmt.Printf("------ %v ------\n", funcName)
+}
 
 func (s *SmartContract) initLedger(APIstub shim.ChaincodeStubInterface) sc.Response {
-	funcName, _, _, _ := runtime.Caller(0)
-	fmt.Printf("------ %s ------\n", funcName)
+	printFunctionName()
 
 	apiNames := []apiName{
 		apiSupportAPIs,
 		apiSupportOpCodes,
 		apiInitLedger,
+		apiCreate,
 		apiCommit,
+		apiQuery,
+		apiHistory,
 	}
 
 	for i, v := range apiNames {
@@ -114,19 +128,128 @@ func (s *SmartContract) initLedger(APIstub shim.ChaincodeStubInterface) sc.Respo
 	return shim.Success(nil)
 }
 
-// func (s *SmartContract) createCar(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
+func (s *SmartContract) createRecord(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
+	printFunctionName()
 
-//  if len(args) != 5 {
-// 	 return shim.Error("Incorrect number of arguments. Expecting 5")
-//  }
+	if len(args) != 7 {
+		return shim.Error("Incorrect number of arguments. Expecting 7")
+	}
 
-//  var car = Car{Make: args[1], Model: args[2], Colour: args[3], Owner: args[4]}
+	edoc := EDocument{
+		DocumentID:  args[0],
+		UID:         args[1],
+		OpCode:      opCode(args[2]),
+		OpTime:      args[3],
+		Hash:        args[4],
+		Name:        args[5],
+		Description: args[6],
+	}
 
-//  carAsBytes, _ := json.Marshal(car)
-//  APIstub.PutState(args[0], carAsBytes)
+	docBytes, err := json.Marshal(edoc)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	err = APIstub.PutState(edocKeyPrefix+args[0], docBytes)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
 
-//  return shim.Success(nil)
-// }
+	return shim.Success([]byte(APIstub.GetTxID()))
+}
+
+func (s *SmartContract) commitRecord(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
+	printFunctionName()
+
+	if len(args) != 7 {
+		return shim.Error("Incorrect number of arguments. Expecting 5")
+	}
+
+	key := edocKeyPrefix + args[0]
+
+	docBytes, err := APIstub.GetState(key)
+	if err != nil { // not exists
+		return shim.Error(err.Error())
+	}
+	var edoc EDocument
+	if err := json.Unmarshal(docBytes, &edoc); err != nil {
+		return shim.Error(err.Error())
+	}
+	edoc.UID = args[1]
+	edoc.OpCode = opCode(args[2])
+	edoc.OpTime = args[3]
+	edoc.Hash = args[4]
+	edoc.Name = args[5]
+	edoc.Description = args[6]
+
+	docBytes, err = json.Marshal(edoc)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	if err := APIstub.PutState(edocKeyPrefix+args[0], docBytes); err != nil {
+		return shim.Error(err.Error())
+	}
+
+	return shim.Success([]byte(APIstub.GetTxID()))
+}
+
+func (s *SmartContract) queryRecord(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
+	printFunctionName()
+
+	if len(args) != 1 {
+		return shim.Error("Incorrect number of arguments. Expecting 1")
+	}
+
+	docBytes, err := APIstub.GetState(edocKeyPrefix + args[0])
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	return shim.Success(docBytes)
+}
+
+func (s *SmartContract) queryRecordHistory(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
+	printFunctionName()
+
+	if len(args) != 1 {
+		return shim.Error("Incorrect number of arguments. Expecting 1")
+	}
+
+	historyIterator, err := APIstub.GetHistoryForKey(edocKeyPrefix + args[0])
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	defer historyIterator.Close()
+
+	var buffer bytes.Buffer
+	buffer.WriteString("[")
+	bArrayMemberAlreadyWritten := false
+	for historyIterator.HasNext() {
+		queryResponse, err := historyIterator.Next()
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		// Add a comma before array members, suppress it for the first array member
+		if bArrayMemberAlreadyWritten == true {
+			buffer.WriteString(",")
+		}
+		buffer.WriteString("{\"txid\":")
+		buffer.WriteString("\"")
+		buffer.WriteString(queryResponse.GetTxId())
+		buffer.WriteString("\"")
+
+		buffer.WriteString(", \"time\":")
+		buffer.WriteString(queryResponse.GetTimestamp().String())
+
+		buffer.WriteString(", \"record\":")
+		buffer.WriteString(string(queryResponse.Value))
+
+		buffer.WriteString("}")
+		bArrayMemberAlreadyWritten = true
+	}
+
+	buffer.WriteString("]")
+
+	return shim.Success(buffer.Bytes())
+}
 
 func (s *SmartContract) queryArrayByIteratorKeys(keys shim.StateQueryIteratorInterface) ([]byte, error) {
 	// buffer is a JSON array containing QueryResults
@@ -143,13 +266,13 @@ func (s *SmartContract) queryArrayByIteratorKeys(keys shim.StateQueryIteratorInt
 		if bArrayMemberAlreadyWritten == true {
 			buffer.WriteString(",")
 		}
-		buffer.WriteString("{\"Key\":")
+		buffer.WriteString("{\"key\":")
 		buffer.WriteString("\"")
 		buffer.WriteString(queryResponse.Key)
 		buffer.WriteString("\"")
 
-		buffer.WriteString(", \"Record\":")
-		// Record is a JSON object, so we write as-is
+		buffer.WriteString(", \"record\":")
+		// record is a JSON object, so we write as-is
 		buffer.WriteString(string(queryResponse.Value))
 		buffer.WriteString("}")
 		bArrayMemberAlreadyWritten = true
@@ -160,8 +283,7 @@ func (s *SmartContract) queryArrayByIteratorKeys(keys shim.StateQueryIteratorInt
 }
 
 func (s *SmartContract) queryAllApis(APIstub shim.ChaincodeStubInterface) sc.Response {
-	funcName, _, _, _ := runtime.Caller(0)
-	fmt.Printf("------ %s ------\n", funcName)
+	printFunctionName()
 
 	startKey := apiKeyPrefix + "0"
 	endKey := apiKeyPrefix + "999"
@@ -180,8 +302,7 @@ func (s *SmartContract) queryAllApis(APIstub shim.ChaincodeStubInterface) sc.Res
 }
 
 func (s *SmartContract) queryAllOpCodes(APIstub shim.ChaincodeStubInterface) sc.Response {
-	funcName, _, _, _ := runtime.Caller(0)
-	fmt.Printf("------ %s ------\n", funcName)
+	printFunctionName()
 
 	startKey := opCodeKeyPrefix + "0"
 	endKey := opCodeKeyPrefix + "999"
@@ -200,6 +321,7 @@ func (s *SmartContract) queryAllOpCodes(APIstub shim.ChaincodeStubInterface) sc.
 }
 
 // func (s *SmartContract) changeCarOwner(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
+// printFunctionName()
 
 //  if len(args) != 2 {
 // 	 return shim.Error("Incorrect number of arguments. Expecting 2")
