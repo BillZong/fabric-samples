@@ -33,13 +33,23 @@ async function main() {
         const network = await gateway.getNetwork('mychannel');
 
         // Get the contract from the network.
-        const contract = network.getContract('fabcar');
+        const contract = network.getContract('crp');
 
         // Submit the specified transaction.
         // createCar transaction - requires 5 argument, ex: ('createCar', 'CAR12', 'Honda', 'Accord', 'Black', 'Tom')
         // changeCarOwner transaction - requires 2 args , ex: ('changeCarOwner', 'CAR10', 'Dave')
-        await contract.submitTransaction('createCar', 'CAR12', 'Honda', 'Accord', 'Black', 'Tom');
-        console.log('Transaction has been submitted');
+        // await contract.submitTransaction('createCar', 'CAR12', 'Honda', 'Accord', 'Black', 'Tom');
+        var result = await contract.submitTransaction('create', '001', 'u001', 'create', '2019-12-24 15:00:00', '0x123456', 'test e-document', 'no description')
+
+        console.log(`Document has been created, result is: ${result.toString()}`);
+
+        result = await contract.submitTransaction('commit', '001', 'u001', 'review', '2019-12-24 15:01:00', '0x123456', 'test e-document', 'no description')
+
+        console.log(`Document has been reviewed, result is: ${result.toString()}`);
+
+        result = await contract.evaluateTransaction('history', '001')
+
+        console.log(`Document history has been searched, result is: ${result.toString()}`);
 
         // Disconnect from the gateway.
         await gateway.disconnect();
