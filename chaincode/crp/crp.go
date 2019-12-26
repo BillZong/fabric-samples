@@ -103,7 +103,7 @@ func (s *SmartContract) createRecord(APIstub shim.ChaincodeStubInterface, args [
 	}
 
 	key := edocKey(args[0], args[1])
-	if _, err := APIstub.GetState(key); err == nil {
+	if docBytes, err := APIstub.GetState(key); len(docBytes) > 0 && err == nil {
 		return shim.Error("document(" + args[1] + ") in system(" + args[0] + ") already exists")
 	}
 
@@ -201,11 +201,11 @@ func (s *SmartContract) queryRecord(APIstub shim.ChaincodeStubInterface, args []
 func (s *SmartContract) queryRecordHistory(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
 	printFunctionName()
 
-	if len(args) != 1 {
-		return shim.Error("Incorrect number of arguments. Expecting 1")
+	if len(args) != 2 {
+		return shim.Error("Incorrect number of arguments. Expecting 2 (systemName, documentID)")
 	}
 
-	historyIterator, err := APIstub.GetHistoryForKey(edocKeyPrefix + args[0])
+	historyIterator, err := APIstub.GetHistoryForKey(edocKey(args[0], args[1]))
 	if err != nil {
 		return shim.Error(err.Error())
 	}

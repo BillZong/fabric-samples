@@ -111,7 +111,7 @@ docker exec \
     -o orderer.example.com:7050 \
     -C mychannel \
     -n crp \
-    -c '{"function":"init-ledger","Args":[]}' \
+    -c '{"function":"init","Args":[]}' \
     --waitForEvent \
     --tls \
     --cafile ${ORDERER_TLS_ROOTCERT_FILE} \
