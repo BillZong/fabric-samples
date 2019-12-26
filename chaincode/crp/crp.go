@@ -231,7 +231,7 @@ func (s *SmartContract) queryRecordHistory(APIstub shim.ChaincodeStubInterface, 
 		buffer.WriteString(", \"time\":")
 		ts := queryResponse.GetTimestamp()
 		t := time.Unix(ts.Seconds, int64(ts.Nanos))
-		buffer.WriteString(t.Format("2006-01-02 15:04:05"))
+		buffer.WriteString("\"" + t.Format("2006-01-02 15:04:05") + "\"")
 
 		buffer.WriteString(", \"record\":")
 		buffer.WriteString(string(queryResponse.Value))
