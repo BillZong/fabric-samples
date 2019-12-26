@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
-	"strconv"
+	"time"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	sc "github.com/hyperledger/fabric/protos/peer"
@@ -14,48 +14,46 @@ import (
 type apiName string
 
 const (
-	apiSupportAPIs    apiName = "apis"
-	apiSupportOpCodes apiName = "op-codes"
-	apiInitLedger     apiName = "init-ledger"
-	apiCreate         apiName = "create"
-	apiCommit         apiName = "commit"
-	apiQuery          apiName = "query"
-	apiHistory        apiName = "history"
+	apiInitLedger  apiName = "init"
+	apiSupportAPIs apiName = "apis"
+	apiCreate      apiName = "create"
+	apiModify      apiName = "modify"
+	apiArchive     apiName = "archive"
+	apiDelete      apiName = "delete"
+	apiQuery       apiName = "query"
+	apiHistory     apiName = "history"
 )
 
 type opCode string
 
 const (
-	opCreate opCode = "create"
-	opDelete opCode = "delete"
-	opReview opCode = "review"
-	opModify opCode = "modify"
+	opCreate  opCode = "create"
+	opModify  opCode = "modify"
+	opArchive opCode = "archive"
+	opDelete  opCode = "delete"
 )
 
 const (
-	apiKeyPrefix    = "API"
-	opCodeKeyPrefix = "OPCode"
-	edocKeyPrefix   = "EDoc_"
+	edocKeyPrefix = "EDoc_"
 )
 
-// Define the Smart Contract structure
+func edocKey(systemName, documentID string) string {
+	return edocKeyPrefix + systemName + documentID
+}
+
+// SmartContract defines the smart contract for CRP(China Resource Power)
 type SmartContract struct {
 }
 
-// EDocument is the e-document structure for CRP(China Resource Power).
+// EDocument defines the e-document in CRP
 type EDocument struct {
-	DocumentID  string `json:"document-id"`
-	UID         string `json:"uid"`
-	OpCode      opCode `json:"op-code"`
-	OpTime      string `json:"op-time"`
-	Hash        string `json:"hash"`
-	Name        string `json:"name,omitempty"`
-	Description string `json:"description,omitempty"`
-}
-
-type KVResult struct {
-	Key   string
-	Value []byte
+	SystemName string      `json:"system-name"`
+	DocumentID string      `json:"document-id"`
+	UID        string      `json:"uid"`
+	OpCode     opCode      `json:"op-code"`
+	OpTime     string      `json:"op-time"`
+	Hash       string      `json:"hash,omitempty"`
+	MetaData   interface{} `json:"meta-data,omitempty"`
 }
 
 func (s *SmartContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
@@ -71,12 +69,14 @@ func (s *SmartContract) Invoke(APIstub shim.ChaincodeStubInterface) sc.Response 
 		return s.initLedger(APIstub)
 	} else if api == apiSupportAPIs {
 		return s.queryAllApis(APIstub)
-	} else if api == apiSupportOpCodes {
-		return s.queryAllOpCodes(APIstub)
 	} else if api == apiCreate {
 		return s.createRecord(APIstub, args)
-	} else if api == apiCommit {
-		return s.commitRecord(APIstub, args)
+	} else if api == apiModify {
+		return s.commitRecord(APIstub, args, opModify)
+	} else if api == apiArchive {
+		return s.commitRecord(APIstub, args, opArchive)
+	} else if api == apiDelete {
+		return s.commitRecord(APIstub, args, opDelete)
 	} else if api == apiQuery {
 		return s.queryRecord(APIstub, args)
 	} else if api == apiHistory {
@@ -92,64 +92,41 @@ func printFunctionName() {
 }
 
 func (s *SmartContract) initLedger(APIstub shim.ChaincodeStubInterface) sc.Response {
-	printFunctionName()
-
-	apiNames := []apiName{
-		apiSupportAPIs,
-		apiSupportOpCodes,
-		apiInitLedger,
-		apiCreate,
-		apiCommit,
-		apiQuery,
-		apiHistory,
-	}
-
-	for i, v := range apiNames {
-		fmt.Println("i is ", i)
-		apiNameAsBytes, _ := json.Marshal(v)
-		APIstub.PutState(apiKeyPrefix+strconv.Itoa(i), apiNameAsBytes)
-		fmt.Println("Added", v)
-	}
-
-	opCodes := []opCode{
-		opCreate,
-		opDelete,
-		opReview,
-		opModify,
-	}
-
-	for i, v := range opCodes {
-		fmt.Println("i is ", i)
-		asBytes, _ := json.Marshal(v)
-		APIstub.PutState("OPCode"+strconv.Itoa(i), asBytes)
-		fmt.Println("Added", v)
-	}
-
 	return shim.Success(nil)
 }
 
 func (s *SmartContract) createRecord(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
 	printFunctionName()
 
-	if len(args) != 7 {
-		return shim.Error("Incorrect number of arguments. Expecting 7")
+	if len(args) < 5 {
+		return shim.Error("Usage: (SystemName,DocumentID,UID,OpTime,Hash,MetaData(optional))")
+	}
+
+	key := edocKey(args[0], args[1])
+	if _, err := APIstub.GetState(key); err == nil {
+		return shim.Error("document(" + args[1] + ") in system(" + args[0] + ") already exists")
 	}
 
 	edoc := EDocument{
-		DocumentID:  args[0],
-		UID:         args[1],
-		OpCode:      opCode(args[2]),
-		OpTime:      args[3],
-		Hash:        args[4],
-		Name:        args[5],
-		Description: args[6],
+		SystemName: args[0],
+		DocumentID: args[1],
+		UID:        args[2],
+		OpCode:     opCreate,
+		OpTime:     args[3],
+		Hash:       args[4],
+	}
+	// if len(args) >= 5 {
+	// 	edoc.Hash = args[4]
+	// }
+	if len(args) >= 6 {
+		edoc.MetaData = args[5]
 	}
 
 	docBytes, err := json.Marshal(edoc)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
-	err = APIstub.PutState(edocKeyPrefix+args[0], docBytes)
+	err = APIstub.PutState(edocKey(edoc.SystemName, edoc.DocumentID), docBytes)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
@@ -157,14 +134,14 @@ func (s *SmartContract) createRecord(APIstub shim.ChaincodeStubInterface, args [
 	return shim.Success([]byte(APIstub.GetTxID()))
 }
 
-func (s *SmartContract) commitRecord(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
+func (s *SmartContract) commitRecord(APIstub shim.ChaincodeStubInterface, args []string, code opCode) sc.Response {
 	printFunctionName()
 
-	if len(args) != 7 {
-		return shim.Error("Incorrect number of arguments. Expecting 5")
+	if len(args) < 5 {
+		return shim.Error("Usage: (SystemName,DocumentID,UID,OpTime,Hash,MetaData(optional))")
 	}
 
-	key := edocKeyPrefix + args[0]
+	key := edocKey(args[0], args[1])
 
 	docBytes, err := APIstub.GetState(key)
 	if err != nil { // not exists
@@ -174,18 +151,33 @@ func (s *SmartContract) commitRecord(APIstub shim.ChaincodeStubInterface, args [
 	if err := json.Unmarshal(docBytes, &edoc); err != nil {
 		return shim.Error(err.Error())
 	}
-	edoc.UID = args[1]
-	edoc.OpCode = opCode(args[2])
+
+	// check status
+	statusInfo := map[opCode]int{
+		opCreate:  0,
+		opModify:  1,
+		opArchive: 2,
+		opDelete:  3,
+	}
+	if statusInfo[edoc.OpCode] > statusInfo[code] {
+		return shim.Error("document status could not reverse back")
+	}
+
+	// update
+	edoc.UID = args[2]
+	edoc.OpCode = code
 	edoc.OpTime = args[3]
 	edoc.Hash = args[4]
-	edoc.Name = args[5]
-	edoc.Description = args[6]
+
+	if len(args) >= 6 {
+		edoc.MetaData = args[5]
+	}
 
 	docBytes, err = json.Marshal(edoc)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
-	if err := APIstub.PutState(edocKeyPrefix+args[0], docBytes); err != nil {
+	if err := APIstub.PutState(key, docBytes); err != nil {
 		return shim.Error(err.Error())
 	}
 
@@ -237,7 +229,9 @@ func (s *SmartContract) queryRecordHistory(APIstub shim.ChaincodeStubInterface, 
 		buffer.WriteString("\"")
 
 		buffer.WriteString(", \"time\":")
-		buffer.WriteString(queryResponse.GetTimestamp().String())
+		ts := queryResponse.GetTimestamp()
+		t := time.Unix(ts.Seconds, int64(ts.Nanos))
+		buffer.WriteString(t.Format("2006-01-02 15:04:05"))
 
 		buffer.WriteString(", \"record\":")
 		buffer.WriteString(string(queryResponse.Value))
@@ -251,93 +245,26 @@ func (s *SmartContract) queryRecordHistory(APIstub shim.ChaincodeStubInterface, 
 	return shim.Success(buffer.Bytes())
 }
 
-func (s *SmartContract) queryArrayByIteratorKeys(keys shim.StateQueryIteratorInterface) ([]byte, error) {
-	// buffer is a JSON array containing QueryResults
-	var buffer bytes.Buffer
-	buffer.WriteString("[")
-
-	bArrayMemberAlreadyWritten := false
-	for keys.HasNext() {
-		queryResponse, err := keys.Next()
-		if err != nil {
-			return nil, err
-		}
-		// Add a comma before array members, suppress it for the first array member
-		if bArrayMemberAlreadyWritten == true {
-			buffer.WriteString(",")
-		}
-		buffer.WriteString("{\"key\":")
-		buffer.WriteString("\"")
-		buffer.WriteString(queryResponse.Key)
-		buffer.WriteString("\"")
-
-		buffer.WriteString(", \"record\":")
-		// record is a JSON object, so we write as-is
-		buffer.WriteString(string(queryResponse.Value))
-		buffer.WriteString("}")
-		bArrayMemberAlreadyWritten = true
-	}
-	buffer.WriteString("]")
-
-	return buffer.Bytes(), nil
-}
-
 func (s *SmartContract) queryAllApis(APIstub shim.ChaincodeStubInterface) sc.Response {
 	printFunctionName()
 
-	startKey := apiKeyPrefix + "0"
-	endKey := apiKeyPrefix + "999"
-
-	resultsIterator, err := APIstub.GetStateByRange(startKey, endKey)
-	if err != nil {
-		return shim.Error(err.Error())
+	apiNames := []apiName{
+		apiSupportAPIs,
+		apiInitLedger,
+		apiCreate,
+		apiModify,
+		apiArchive,
+		apiDelete,
+		apiQuery,
+		apiHistory,
 	}
-	defer resultsIterator.Close()
 
-	ret, err := s.queryArrayByIteratorKeys(resultsIterator)
-	if err != nil {
-		return shim.Error(err.Error())
-	}
-	return shim.Success(ret)
-}
-
-func (s *SmartContract) queryAllOpCodes(APIstub shim.ChaincodeStubInterface) sc.Response {
-	printFunctionName()
-
-	startKey := opCodeKeyPrefix + "0"
-	endKey := opCodeKeyPrefix + "999"
-
-	resultsIterator, err := APIstub.GetStateByRange(startKey, endKey)
-	if err != nil {
-		return shim.Error(err.Error())
-	}
-	defer resultsIterator.Close()
-
-	ret, err := s.queryArrayByIteratorKeys(resultsIterator)
+	ret, err := json.Marshal(apiNames)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 	return shim.Success(ret)
 }
-
-// func (s *SmartContract) changeCarOwner(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
-// printFunctionName()
-
-//  if len(args) != 2 {
-// 	 return shim.Error("Incorrect number of arguments. Expecting 2")
-//  }
-
-//  carAsBytes, _ := APIstub.GetState(args[0])
-//  car := Car{}
-
-//  json.Unmarshal(carAsBytes, &car)
-//  car.Owner = args[1]
-
-//  carAsBytes, _ = json.Marshal(car)
-//  APIstub.PutState(args[0], carAsBytes)
-
-//  return shim.Success(nil)
-// }
 
 // The main function is only relevant in unit test mode. Only included here for completeness.
 func main() {
