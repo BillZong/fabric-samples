@@ -68,6 +68,33 @@ setGlobals() {
   fi
 }
 
+# ORG_MSPID ORG_DOMAIN PEER_NAME PORT
+setGlobalWithArgs() {
+  if [ $# -lt 4 ]; then
+    echo "Usage setGlobalWithArgs ORG_MSPID ORG_DOMAIN PEER_NAME PORT"
+    exit 1
+  fi
+
+  Org4MSP
+/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org4.example.com/peers/peer0.org4.example.com/tls/ca.crt
+/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org4.example.com/users/Admin@org4.example.com/msp
+peer0.org4.example.com:12345
+
+  CORE_PEER_LOCALMSPID=$1
+  CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/$2/peers/$3.$2/tls/ca.crt
+  CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/$2/users/Admin@$2/msp
+  CORE_PEER_ADDRESS=$3.$2:$4
+
+  echo "$CORE_PEER_LOCALMSPID"
+  echo "$CORE_PEER_TLS_ROOTCERT_FILE"
+  echo "$CORE_PEER_MSPCONFIGPATH"
+  echo "$CORE_PEER_ADDRESS"
+
+  if [ "$VERBOSE" == "true" ]; then
+    env | grep CORE
+  fi
+}
+
 updateAnchorPeers() {
   PEER=$1
   ORG=$2
@@ -107,6 +134,26 @@ joinChannelWithRetry() {
     echo "peer${PEER}.org${ORG} failed to join the channel, Retry after $DELAY seconds"
     sleep $DELAY
     joinChannelWithRetry $PEER $ORG
+  else
+    COUNTER=1
+  fi
+  verifyResult $res "After $MAX_RETRY attempts, peer${PEER}.org${ORG} has failed to join channel '$CHANNEL_NAME' "
+}
+
+## Sometimes Join takes time hence RETRY at least 5 times
+joinChannelWithArgsAndRetry() {
+  setGlobalWithArgs $@
+
+  set -x
+  peer channel join -b $CHANNEL_NAME.block >&log.txt
+  res=$?
+  set +x
+  cat log.txt
+  if [ $res -ne 0 -a $COUNTER -lt $MAX_RETRY ]; then
+    COUNTER=$(expr $COUNTER + 1)
+    echo "peer${PEER}.org${ORG} failed to join the channel, Retry after $DELAY seconds"
+    sleep $DELAY
+    joinChannelWithArgsAndRetry $@
   else
     COUNTER=1
   fi
