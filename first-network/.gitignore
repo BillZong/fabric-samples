@@ -11,3 +11,5 @@ connection-org1.yaml
 connection-org2.json
 connection-org2.yaml
 /Org*-artifacts/
+docker-compose-couch-Org*.yaml
+docker-compose-Org*.yaml

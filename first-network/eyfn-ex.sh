@@ -33,6 +33,13 @@ function printHelp () {
   echo "    -s <dbtype> - the database backend to use: goleveldb (default) or couchdb"
   echo "    -l <language> - the chaincode language: golang (default) or node"
   echo "    -i <imagetag> - the tag to be used to launch the network (defaults to \"latest\")"
+  echo "    -n <org name>"
+  echo "    -u <org domain>"
+  echo "    -w <org mspid>"
+  echo "    -x <peer(0) port>"
+  echo "    -y <peer(0) chaincode port>"
+  echo "    -a <couchdb(0) name>"
+  echo "    -b <couchdb(0) port>"
   echo "    -v - verbose mode"
   echo
   echo "Typically, one would first generate the required certificates and "
@@ -98,14 +105,24 @@ function networkUp () {
     generateChannelArtifacts
     createConfigTx
   fi
+
+  COMPOSE_FILE_ORG_COUCH=docker-compose-couch-${ORG_NAME}.yaml
+  COMPOSE_FILE_ORG=docker-compose-${ORG_NAME}.yaml
+
   # copy peer template of org
-#   if [ ! -f $COMPOSE_FILE_ORG_COUCH ]; then
-#     cp $COMPOSE_FILE_ORG_COUCH_TEMPLATE $COMPOSE_FILE_ORG_COUCH
-#     sed $SED_OPTS "s/\${COUCHDB_CONTAINER_NAME}/${COUCHDB_CONTAINER_NAME}/" \
-#         $SED_OPTS "s/\${PEER_NAME}/${PEER_NAME}/" \
-#         $SED_OPTS "s/\${ORG_DOMAIN}/${ORG_DOMAIN}/" \
-#         $COMPOSE_FILE_ORG_COUCH
-#   fi
+  (sed -e "s/\${COUCHDB_CONTAINER_NAME}/${COUCHDB_CONTAINER_NAME}/g" \
+        -e "s/\${COUCHDB_PORT}/${COUCHDB_PORT}/g" \
+        -e "s/\${PEER_NAME}/${PEER_NAME}/g" \
+        -e "s/\${ORG_DOMAIN}/${ORG_DOMAIN}/g" \
+        $COMPOSE_FILE_ORG_COUCH_TEMPLATE > $COMPOSE_FILE_ORG_COUCH
+    sed -e "s/\${PEER_NAME}/${PEER_NAME}/g" \
+        -e "s/\${ORG_DOMAIN}/${ORG_DOMAIN}/g" \
+        -e "s/\${ORG_NAME}/${ORG_NAME}/g" \
+        -e "s/\${ORG_MSPID}/${ORG_MSPID}/g" \
+        -e "s/\${CHAINCODE_PORT}/${CHAINCODE_PORT}/g" \
+        -e "s/\${PORT}/${PORT}/g" \
+        $COMPOSE_FILE_ORG_TEMPLATE > $COMPOSE_FILE_ORG
+  )
 
   # start org peers
   if [ "${IF_COUCHDB}" == "couchdb" ]; then
@@ -117,6 +134,9 @@ function networkUp () {
     echo "ERROR !!!! Unable to start ${ORG_NAME} network"
     exit 1
   fi
+
+  exit 0
+
   echo
   echo "###############################################################"
   echo "############### Have $ORG_NAME peers join network ##################"
@@ -264,13 +284,9 @@ COMPOSE_FILE=docker-compose-cli.yaml
 #
 COMPOSE_FILE_COUCH=docker-compose-couch.yaml
 # use this as the default docker-compose yaml definition
-COMPOSE_FILE_ORG_TEMPLATE=docker-compose-template.yaml
-COMPOSE_FILE_ORG=docker-compose-${ORG_NAME}.yaml
-# COMPOSE_FILE_ORG3=docker-compose-org3.yaml
+COMPOSE_FILE_ORG_TEMPLATE=base/docker-compose-org-templete.yaml
 #
-COMPOSE_FILE_ORG_COUCH_TEMPLATE=base/docker-composeorg-couch-template.yaml
-COMPOSE_FILE_ORG_COUCH=docker-compose-couch-${ORG_NAME}.yaml
-# COMPOSE_FILE_ORG_COUCH3=docker-compose-couch-org3.yaml
+COMPOSE_FILE_ORG_COUCH_TEMPLATE=base/docker-compose-org-couch-template.yaml
 # kafka and zookeeper compose file
 COMPOSE_FILE_KAFKA=docker-compose-kafka.yaml
 # two additional etcd/raft orderers
@@ -298,7 +314,7 @@ else
   printHelp
   exit 1
 fi
-while getopts "h?c:t:d:f:s:l:i:vn:u:w:x:y:" opt; do
+while getopts "h?c:t:d:f:s:l:i:vn:u:w:x:y:a:b:" opt; do
   case "$opt" in
     h|\?)
       printHelp
@@ -329,6 +345,10 @@ while getopts "h?c:t:d:f:s:l:i:vn:u:w:x:y:" opt; do
     x)  PORT=$OPTARG
     ;;
     y)  CHAINCODE_PORT=$OPTARG
+    ;;
+    a)  COUCHDB_CONTAINER_NAME=$OPTARG
+    ;;
+    b)  COUCHDB_PORT=$OPTARG
     ;;
   esac
 done
