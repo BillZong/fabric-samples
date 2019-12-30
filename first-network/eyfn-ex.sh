@@ -138,8 +138,6 @@ function networkUp () {
   echo "###############################################################"
   echo "############### Have $ORG_NAME peers join network ##################"
   echo "###############################################################"
-#   docker exec Org3cli ./scripts/step2org.sh $CHANNEL_NAME $CLI_DELAY $LANGUAGE $CLI_TIMEOUT $VERBOSE
-#   docker exec cli scripts/step2org.sh $ORG_NAME $ORG_MSPID $ORG_DOMAIN $PEER_NAME $PORT $CHANNEL_NAME "github.com/chaincode/chaincode_example02/go/" "2.0" $CLI_DELAY $LANGUAGE $CLI_TIMEOUT $VERBOSE
   docker exec ${ORG_NAME}-cli scripts/step2org.sh $ORG_NAME $ORG_MSPID $ORG_DOMAIN $PEER_NAME $PORT $CHANNEL_NAME "github.com/chaincode/chaincode_example02/go/" "2.0" $LANGUAGE $VERBOSE
   if [ $? -ne 0 ]; then
     echo "ERROR !!!! Unable to have ${ORG_NAME} peers join network"

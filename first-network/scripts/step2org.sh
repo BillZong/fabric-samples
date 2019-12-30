@@ -63,7 +63,7 @@ verifyResult $res "Fetching config block from orderer has Failed"
 joinChannelWithArgsAndRetry $NEW_ORG_MSPID $NEW_ORG_DOMAIN $PEER_NAME $PORT
 echo "===================== ${PEER_NAME}.${NEW_ORG_NAME} joined channel '$CHANNEL_NAME' ===================== "
 echo "Installing chaincode 2.0 on ${PEER_NAME}.${NEW_ORG_NAME}..."
-installChaincode 0 3 2.0
+installChaincodeWithArgs $NEW_ORG_MSPID $NEW_ORG_DOMAIN $PEER_NAME $PORT mycc 2.0
 
 echo
 echo "========= ${NEW_ORG_NAME} is now halfway onto your first network ========= "

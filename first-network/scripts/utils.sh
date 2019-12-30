@@ -75,20 +75,10 @@ setGlobalWithArgs() {
     exit 1
   fi
 
-  Org4MSP
-/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org4.example.com/peers/peer0.org4.example.com/tls/ca.crt
-/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org4.example.com/users/Admin@org4.example.com/msp
-peer0.org4.example.com:12345
-
   CORE_PEER_LOCALMSPID=$1
   CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/$2/peers/$3.$2/tls/ca.crt
   CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/$2/users/Admin@$2/msp
   CORE_PEER_ADDRESS=$3.$2:$4
-
-  echo "$CORE_PEER_LOCALMSPID"
-  echo "$CORE_PEER_TLS_ROOTCERT_FILE"
-  echo "$CORE_PEER_MSPCONFIGPATH"
-  echo "$CORE_PEER_ADDRESS"
 
   if [ "$VERBOSE" == "true" ]; then
     env | grep CORE
@@ -167,6 +157,20 @@ installChaincode() {
   VERSION=${3:-1.0}
   set -x
   peer chaincode install -n mycc -v ${VERSION} -l ${LANGUAGE} -p ${CC_SRC_PATH} >&log.txt
+  res=$?
+  set +x
+  cat log.txt
+  verifyResult $res "Chaincode installation on peer${PEER}.org${ORG} has failed"
+  echo "===================== Chaincode is installed on peer${PEER}.org${ORG} ===================== "
+  echo
+}
+
+installChaincodeWithArgs() {
+  setGlobalWithArgs $@
+  CHAINCODE_NAME=${5:-"crp"}
+  VERSION=${6:-1.0}
+  set -x
+  peer chaincode install -n $CHAINCODE_NAME -v ${VERSION} -l ${LANGUAGE} -p ${CC_SRC_PATH} >&log.txt
   res=$?
   set +x
   cat log.txt
