@@ -364,6 +364,16 @@ Profiles:
             Capabilities:
                 <<: *ApplicationCapabilities
 
+    OneOrgsChannel:
+        Consortium: SampleConsortium
+        <<: *ChannelDefaults
+        Application:
+            <<: *ApplicationDefaults
+            Organizations:
+                - *Org1
+            Capabilities:
+                <<: *ApplicationCapabilities
+
     SampleDevModeKafka:
         <<: *ChannelDefaults
         Capabilities:
