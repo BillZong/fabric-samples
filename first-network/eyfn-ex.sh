@@ -195,8 +195,9 @@ function generateCerts (){
    sed -e "s/\${ORG_NAME}/${ORG_NAME}/g" \
      -e "s/\${ORG_DOMAIN}/${ORG_DOMAIN}/g" \
      org-artifacts-template/crypto.yaml > ${ORG_NAME}-artifacts/crypto.yaml
+   cd ${ORG_NAME}-artifacts
    set -x
-   cryptogen generate --config=${ORG_NAME}-artifacts/crypto.yaml
+   cryptogen generate --config=./crypto.yaml
    res=$?
    set +x
    if [ $res -ne 0 ]; then
@@ -357,7 +358,6 @@ if [ "${MODE}" == "up" ]; then
 elif [ "${MODE}" == "down" ]; then ## Clear the network
   networkDown
 elif [ "${MODE}" == "generate" ]; then ## Generate Artifacts
-  echo "111"
   generateCerts
   generateChannelArtifacts
   createConfigTx
