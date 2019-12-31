@@ -12,41 +12,44 @@
 # network previously setup in the BYFN tutorial.
 #
 
-echo
-echo "========= Finish adding Org3 to your first network ========= "
-echo
-CHANNEL_NAME="$1"
-DELAY="$2"
-LANGUAGE="$3"
-TIMEOUT="$4"
-VERBOSE="$5"
+# 必须<=9个参数
+NEW_ORG_NAME="$1"
+NEW_ORG_MSPID="$2"
+NEW_ORG_DOMAIN="$3"
+PEER_NAME="$4"
+PORT="$5"
+CC_SRC_PATH="$6"
+CC_NAME="$7"
+CC_VERSION="$8"
+
+LANGUAGE="golang"
+
 : ${CHANNEL_NAME:="mychannel"}
 : ${DELAY:="3"}
-: ${LANGUAGE:="golang"}
 : ${TIMEOUT:="10"}
 : ${VERBOSE:="false"}
-LANGUAGE=`echo "$LANGUAGE" | tr [:upper:] [:lower:]`
 COUNTER=1
 MAX_RETRY=5
 
-CC_SRC_PATH="github.com/chaincode/chaincode_example02/go/"
-if [ "$LANGUAGE" = "node" ]; then
-	CC_SRC_PATH="/opt/gopath/src/github.com/chaincode/chaincode_example02/node/"
-fi
+echo
+echo "========= Finish adding $NEW_ORG_NAME to your first network ========= "
+echo
 
 # import utils
 . scripts/utils.sh
 
-echo "===================== Installing chaincode 2.0 on peer0.org1 ===================== "
-installChaincode 0 1 2.0
-echo "===================== Installing chaincode 2.0 on peer0.org2 ===================== "
-installChaincode 0 2 2.0
+echo "===================== Installing chaincode $CC_VERSION on peer0.org1 ===================== "
+installChaincodeWithArgs Org1MSP org1.example.com peer0 7051 $CC_NAME $CC_VERSION
+echo "===================== Installing chaincode $CC_VERSION on peer0.org2 ===================== "
+installChaincodeWithArgs Org2MSP org2.example.com peer0 9051 $CC_NAME $CC_VERSION
 
 echo "===================== Upgrading chaincode on peer0.org1 ===================== "
-upgradeChaincode 0 1
+# TODO: 确认合约具体有多少组织需要介入认可
+upgradeChaincodeWithArgs Org1MSP org1.example.com peer0 7051 \
+  '{"Args":["init","a","90","b","210"]}' "AND ('Org1MSP.peer','Org2MSP.peer','$NEW_ORG_MSPID.peer')" $CC_NAME $CC_VERSION
 
 echo
-echo "========= Finished adding Org3 to your first network! ========= "
+echo "========= Finished adding $NEW_ORG_NAME to your first network! ========= "
 echo
 
 exit 0

@@ -167,15 +167,15 @@ installChaincode() {
 
 installChaincodeWithArgs() {
   setGlobalWithArgs $@
-  CHAINCODE_NAME=${5:-"crp"}
-  VERSION=${6:-1.0}
+  local CHAINCODE_NAME=${5:-"crp"}
+  local VERSION=${6:-1.0}
   set -x
   peer chaincode install -n $CHAINCODE_NAME -v ${VERSION} -l ${LANGUAGE} -p ${CC_SRC_PATH} >&log.txt
   res=$?
   set +x
   cat log.txt
-  verifyResult $res "Chaincode installation on peer${PEER}.org${ORG} has failed"
-  echo "===================== Chaincode is installed on peer${PEER}.org${ORG} ===================== "
+  verifyResult $res "Chaincode installation on $PEER_NAME.$NEW_ORG_NAME has failed"
+  echo "===================== Chaincode is installed on $PEER_NAME.$NEW_ORG_NAME ===================== "
   echo
 }
 
@@ -220,6 +220,22 @@ upgradeChaincode() {
   echo
 }
 
+upgradeChaincodeWithArgs() {
+  setGlobalWithArgs $@
+  local PARAMS=${5}
+  local POLOCY=${6}
+  local CHAINCODE_NAME=${7:-"crp"}
+  local VERSION=${8:-1.0}
+  set -x
+  peer chaincode upgrade -o orderer.example.com:7050 --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n "$CHAINCODE_NAME" -v "$VERSION" -c "$PARAMS" -P "$POLOCY"
+  res=$?
+  set +x
+  cat log.txt
+  verifyResult $res "Chaincode upgrade on $PEER_NAME.$NEW_ORG_NAME has failed"
+  echo "===================== Chaincode is upgraded on $PEER_NAME.$NEW_ORG_NAME on channel '$CHANNEL_NAME' ===================== "
+  echo
+}
+
 chaincodeQuery() {
   PEER=$1
   ORG=$2
@@ -254,6 +270,46 @@ chaincodeQuery() {
     echo "===================== Query successful on peer${PEER}.org${ORG} on channel '$CHANNEL_NAME' ===================== "
   else
     echo "!!!!!!!!!!!!!!! Query result on peer${PEER}.org${ORG} is INVALID !!!!!!!!!!!!!!!!"
+    echo "================== ERROR !!! FAILED to execute End-2-End Scenario =================="
+    echo
+    exit 1
+  fi
+}
+
+chaincodeQueryWithArgs() {
+  setGlobalWithArgs $@
+  local CC_NAME=$5
+  local PARAMS=$6
+  local EXPECTED_RESULT=$7
+  echo "===================== Querying on $PEER_NAME.$NEW_ORG_NAME on channel '$CHANNEL_NAME'... ===================== "
+  local rc=1
+  local starttime=$(date +%s)
+
+  # continue to poll
+  # we either get a successful response, or reach TIMEOUT
+  while
+    test "$(($(date +%s) - starttime))" -lt "$TIMEOUT" -a $rc -ne 0
+  do
+    sleep $DELAY
+    echo "Attempting to Query $PEER_NAME.$NEW_ORG_NAME ...$(($(date +%s) - starttime)) secs"
+    set -x
+    peer chaincode query -C $CHANNEL_NAME -n $CC_NAME -c "$PARAMS" >&log.txt
+    res=$?
+    set +x
+    test $res -eq 0 && VALUE=$(cat log.txt | awk '/Query Result/ {print $NF}')
+    test "$VALUE" = "$EXPECTED_RESULT" && let rc=0
+    # removed the string "Query Result" from peer chaincode query command
+    # result. as a result, have to support both options until the change
+    # is merged.
+    test $rc -ne 0 && VALUE=$(cat log.txt | egrep '^[0-9]+$')
+    test "$VALUE" = "$EXPECTED_RESULT" && let rc=0
+  done
+  echo
+  cat log.txt
+  if test $rc -eq 0; then
+    echo "===================== Query successful on $PEER_NAME.$NEW_ORG_NAME on channel '$CHANNEL_NAME' ===================== "
+  else
+    echo "!!!!!!!!!!!!!!! Query result on $PEER_NAME.$NEW_ORG_NAME is INVALID !!!!!!!!!!!!!!!!"
     echo "================== ERROR !!! FAILED to execute End-2-End Scenario =================="
     echo
     exit 1

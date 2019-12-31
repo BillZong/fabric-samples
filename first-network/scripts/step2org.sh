@@ -12,30 +12,23 @@
 # chaincode as version 2.0 on peer0.org3.
 #
 
+# 必须<=9个参数
 NEW_ORG_NAME="$1"
 NEW_ORG_MSPID="$2"
 NEW_ORG_DOMAIN="$3"
 PEER_NAME="$4"
 PORT="$5"
-CHANNEL_NAME="$6"
-CC_SRC_PATH="$7"
+CC_SRC_PATH="$6"
+CC_NAME="$7"
 CC_VERSION="$8"
-LANGUAGE="$9"
-VERBOSE="$10"
 
-echo "$VERBOSE"
+LANGUAGE="golang"
 
-# CHANNEL_NAME="$1"
-# DELAY="$2"
-# LANGUAGE="$3"
-# TIMEOUT="$4"
-# VERBOSE="$5"
 : ${CHANNEL_NAME:="mychannel"}
 : ${CC_SRC_PATH:="github.com/chaincode/crp"}
 : ${DELAY:="3"}
-: ${LANGUAGE:="golang"}
 : ${TIMEOUT:="10"}
-: ${VERBOSE:="false"}
+# : ${VERBOSE:="false"}
 LANGUAGE=`echo "$LANGUAGE" | tr [:upper:] [:lower:]`
 COUNTER=1
 MAX_RETRY=5
@@ -62,8 +55,8 @@ verifyResult $res "Fetching config block from orderer has Failed"
 
 joinChannelWithArgsAndRetry $NEW_ORG_MSPID $NEW_ORG_DOMAIN $PEER_NAME $PORT
 echo "===================== ${PEER_NAME}.${NEW_ORG_NAME} joined channel '$CHANNEL_NAME' ===================== "
-echo "Installing chaincode 2.0 on ${PEER_NAME}.${NEW_ORG_NAME}..."
-installChaincodeWithArgs $NEW_ORG_MSPID $NEW_ORG_DOMAIN $PEER_NAME $PORT mycc 2.0
+echo "Installing chaincode $CC_VERSION on ${PEER_NAME}.${NEW_ORG_NAME}..."
+installChaincodeWithArgs $NEW_ORG_MSPID $NEW_ORG_DOMAIN $PEER_NAME $PORT $CC_NAME $CC_VERSION
 
 echo
 echo "========= ${NEW_ORG_NAME} is now halfway onto your first network ========= "

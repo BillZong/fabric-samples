@@ -138,25 +138,32 @@ function networkUp () {
   echo "###############################################################"
   echo "############### Have $ORG_NAME peers join network ##################"
   echo "###############################################################"
-  docker exec ${ORG_NAME}-cli scripts/step2org.sh $ORG_NAME $ORG_MSPID $ORG_DOMAIN $PEER_NAME $PORT $CHANNEL_NAME "github.com/chaincode/chaincode_example02/go/" "2.0" $LANGUAGE $VERBOSE
+
+  local CC_SRC_PATH="github.com/chaincode/chaincode_example02/go/"
+  local CC_NAME=mycc
+  local CC_VERSION=2.0
+
+  docker exec ${ORG_NAME}-cli scripts/step2org.sh $ORG_NAME $ORG_MSPID $ORG_DOMAIN $PEER_NAME $PORT $CC_SRC_PATH $CC_NAME $CC_VERSION
   if [ $? -ne 0 ]; then
     echo "ERROR !!!! Unable to have ${ORG_NAME} peers join network"
     exit 1
   fi
 
-  exit 0
-
   echo
   echo "###############################################################"
   echo "##### Upgrade chaincode to have $ORG_NAME peers on the network #####"
-  echo "###############################################################"
-  docker exec cli ./scripts/step3org.sh $CHANNEL_NAME $CLI_DELAY $LANGUAGE $CLI_TIMEOUT $VERBOSE
+  echo "###############################################################" 
+  (
+    cp -r ${ORG_NAME}-artifacts/crypto-config/peerOrganizations/${ORG_DOMAIN} crypto-config/peerOrganizations/
+  )
+  docker exec cli scripts/step3org.sh $ORG_NAME $ORG_MSPID $ORG_DOMAIN $PEER_NAME $PORT $CC_SRC_PATH $CC_NAME $CC_VERSION
   if [ $? -ne 0 ]; then
     echo "ERROR !!!! Unable to add ${ORG_NAME} peers on network"
     exit 1
   fi
+
   # finish by running the test
-  docker exec ${ORG_NAME}-cli ./scripts/testorg3.sh $CHANNEL_NAME $CLI_DELAY $LANGUAGE $CLI_TIMEOUT $VERBOSE
+  docker exec ${ORG_NAME}-cli ./scripts/testorg.sh $ORG_NAME $ORG_MSPID $ORG_DOMAIN $PEER_NAME $PORT $CC_NAME
   if [ $? -ne 0 ]; then
     echo "ERROR !!!! Unable to run test"
     exit 1
@@ -186,7 +193,7 @@ function createConfigTx () {
   echo "###############################################################"
   echo "####### Generate and submit config tx to add $ORG_NAME #############"
   echo "###############################################################"
-  docker exec cli scripts/step1org.sh $ORG_NAME $ORG_MSPID $CHANNEL_NAME "github.com/chaincode/chaincode_example02/go/" $CLI_DELAY $LANGUAGE $CLI_TIMEOUT $VERBOSE 
+  docker exec cli scripts/step1org.sh $ORG_NAME $ORG_MSPID $CHANNEL_NAME $CC_SRC_PATH $CLI_DELAY $LANGUAGE $CLI_TIMEOUT $VERBOSE 
   if [ $? -ne 0 ]; then
     echo "ERROR !!!! Unable to create config tx"
     exit 1
