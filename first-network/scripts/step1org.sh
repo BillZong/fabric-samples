@@ -71,6 +71,8 @@ set -x
 peer channel update -f ${NEW_ORG_NAME}_update_in_envelope.pb -c ${CHANNEL_NAME} -o orderer.example.com:7050 --tls --cafile ${ORDERER_CA}
 set +x
 
+# TODO: more orgs signing
+
 echo
 echo "========= Config transaction to add ${NEW_ORG_NAME} to network submitted! =========== "
 echo

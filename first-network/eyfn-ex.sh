@@ -104,6 +104,7 @@ function networkUp () {
     generateCerts
     generateChannelArtifacts
     createConfigTx
+    copyCryptoFiles ${ORG_NAME} ${ORG_DOMAIN}
   fi
 
   COMPOSE_FILE_ORG_COUCH=docker-compose-couch-${ORG_NAME}.yaml
@@ -141,7 +142,7 @@ function networkUp () {
 
   local CC_SRC_PATH="github.com/chaincode/chaincode_example02/go/"
   local CC_NAME=mycc
-  local CC_VERSION=2.0
+  local CC_VERSION=1.0
 
   docker exec ${ORG_NAME}-cli scripts/step2org.sh $ORG_NAME $ORG_MSPID $ORG_DOMAIN $PEER_NAME $PORT $CC_SRC_PATH $CC_NAME $CC_VERSION
   if [ $? -ne 0 ]; then
@@ -149,18 +150,15 @@ function networkUp () {
     exit 1
   fi
 
-  echo
-  echo "###############################################################"
-  echo "##### Upgrade chaincode to have $ORG_NAME peers on the network #####"
-  echo "###############################################################" 
-  (
-    cp -r ${ORG_NAME}-artifacts/crypto-config/peerOrganizations/${ORG_DOMAIN} crypto-config/peerOrganizations/
-  )
-  docker exec cli scripts/step3org.sh $ORG_NAME $ORG_MSPID $ORG_DOMAIN $PEER_NAME $PORT $CC_SRC_PATH $CC_NAME $CC_VERSION
-  if [ $? -ne 0 ]; then
-    echo "ERROR !!!! Unable to add ${ORG_NAME} peers on network"
-    exit 1
-  fi
+#   echo
+#   echo "###############################################################"
+#   echo "##### Upgrade chaincode to have $ORG_NAME peers on the network #####"
+#   echo "###############################################################" 
+#   docker exec cli scripts/step3org.sh $ORG_NAME $ORG_MSPID $ORG_DOMAIN $PEER_NAME $PORT $CC_SRC_PATH $CC_NAME $CC_VERSION
+#   if [ $? -ne 0 ]; then
+#     echo "ERROR !!!! Unable to add ${ORG_NAME} peers on network"
+#     exit 1
+#   fi
 
   # finish by running the test
   docker exec ${ORG_NAME}-cli ./scripts/testorg.sh $ORG_NAME $ORG_MSPID $ORG_DOMAIN $PEER_NAME $PORT $CC_NAME
@@ -198,6 +196,10 @@ function createConfigTx () {
     echo "ERROR !!!! Unable to create config tx"
     exit 1
   fi
+}
+
+function copyCryptoFiles () {
+  cp -r $1-artifacts/crypto-config/peerOrganizations/$2 crypto-config/peerOrganizations/
 }
 
 # We use the cryptogen tool to generate the cryptographic material
@@ -388,6 +390,7 @@ elif [ "${MODE}" == "generate" ]; then ## Generate Artifacts
   generateCerts
   generateChannelArtifacts
   createConfigTx
+  copyCryptoFiles ${ORG_NAME} ${ORG_DOMAIN}
 elif [ "${MODE}" == "restart" ]; then ## Restart the network
   networkDown
   networkUp
