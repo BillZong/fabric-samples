@@ -16,6 +16,13 @@ export PATH=${PWD}/../bin:${PWD}:$PATH
 export FABRIC_CFG_PATH=${PWD}
 export VERBOSE=false
 
+# CC_SRC_PATH="github.com/chaincode/chaincode_example02/go/"
+# CC_NAME=mycc
+CC_SRC_PATH="github.com/chaincode/crp"
+CC_NAME=crp
+CC_VERSION=1.0
+
+
 # Print the usage message
 function printHelp () {
   echo "Usage: "
@@ -139,10 +146,6 @@ function networkUp () {
   echo "###############################################################"
   echo "############### Have $ORG_NAME peers join network ##################"
   echo "###############################################################"
-
-  local CC_SRC_PATH="github.com/chaincode/chaincode_example02/go/"
-  local CC_NAME=mycc
-  local CC_VERSION=1.0
 
   docker exec ${ORG_NAME}-cli scripts/step2org.sh $ORG_NAME $ORG_MSPID $ORG_DOMAIN $PEER_NAME $PORT $CC_SRC_PATH $CC_NAME $CC_VERSION
   if [ $? -ne 0 ]; then
