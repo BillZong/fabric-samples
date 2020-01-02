@@ -10,6 +10,7 @@ apt-get -y install jq
 pwd
 
 # Fetch the config for the channel, writing it to the path
-fetchChannelConfig ${CHANNEL_NAME} ${CONFIG_PATH}  
+fetchChannelConfig ${CHANNEL_NAME} ${CONFIG_PATH}
+chmod 666 ${CONFIG_PATH}
 
 exit 0
